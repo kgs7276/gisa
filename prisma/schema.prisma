@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Question {
+  id          String   @id @default(uuid())
+  year        Int
+  round       Int
+  subject     String
+  questionNo  Int
+  content     String
+  optionA     String
+  optionB     String
+  optionC     String
+  optionD     String
+  answer      Int
+  explanation String
+  difficulty  String   @default("MEDIUM")
+  tags        String   @default("[]")
+  topic       String?
+  isGenerated Boolean  @default(false)
+  sourceNote  String?
+  userAnswers UserAnswer[]
+  trendTopics ExamTrendQuestion[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([year, round, subject, questionNo])
+  @@index([subject])
+  @@index([year, round])
+  @@index([topic])
+  @@index([difficulty])
+}
+
+model QuizSession {
+  id          String   @id @default(uuid())
+  mode        String
+  subject     String?
+  totalQ      Int
+  timeLimit   Int?
+  currentIdx  Int      @default(0)
+  status      String   @default("IN_PROGRESS")
+  score       Int?
+  totalTime   Int?
+  yearFilter  Int?
+  roundFilter Int?
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  answers     UserAnswer[]
+  questionIds String   @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+}
+
+model UserAnswer {
+  id             String   @id @default(uuid())
+  selectedOption Int
+  isCorrect      Boolean
+  aiExplanation  String?
+  aiSummary      String?
+  aiAnalysis     String?
+  aiEvalStatus   String   @default("PENDING")
+  timeSpent      Int?
+  sessionId      String
+  session        QuizSession @relation(fields: [sessionId], references: [id])
+  questionId     String
+  question       Question    @relation(fields: [questionId], references: [id])
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([sessionId, questionId])
+  @@index([userId])
+  @@index([questionId])
+  @@index([userId, isCorrect])
+}
+
+model ExamTrend {
+  id              String   @id @default(uuid())
+  subject         String
+  topic           String
+  analysisYear    Int
+  yearlyFrequency String   @default("{}")
+  totalCount      Int      @default(0)
+  avgPerExam      Float    @default(0.0)
+  trendSummary    String?
+  predictedCount  Int?
+  importance      String   @default("MEDIUM")
+  questions       ExamTrendQuestion[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([subject, topic])
+  @@index([subject])
+  @@index([importance])
+}
+
+model ExamTrendQuestion {
+  trend      ExamTrend @relation(fields: [trendId], references: [id])
+  trendId    String
+  question   Question  @relation(fields: [questionId], references: [id])
+  questionId String
+
+  @@id([trendId, questionId])
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  name           String?
+  password       String?
+  totalAnswered  Int           @default(0)
+  totalCorrect   Int           @default(0)
+  currentStreak  Int           @default(0)
+  longestStreak  Int           @default(0)
+  lastStudyDate  String?       // YYYY-MM-DD
+  dailyGoal      Int           @default(10)
+  sessions       QuizSession[]
+  answers        UserAnswer[]
+  dailyStats     UserDailyStat[]
+  achievements   Achievement[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model UserDailyStat {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      String   // YYYY-MM-DD
+  answered  Int      @default(0)
+  correct   Int      @default(0)
+  studyTime Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model Achievement {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  type     String
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, type])
+  @@index([userId])
+}
